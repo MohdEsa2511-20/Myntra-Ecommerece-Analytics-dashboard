@@ -2,56 +2,80 @@ from flask import Flask, render_template, request
 from sqlalchemy import create_engine
 import pandas as pd
 import plotly.express as px
+from dotenv import load_dotenv
+import os
+
+# ----------------------------
+# Load Environment Variables
+# ----------------------------
+load_dotenv()
 
 app = Flask(__name__)
 
+# ----------------------------
 # MySQL Connection
+# ----------------------------
 engine = create_engine(
-    "mysql+pymysql://root:sidd2025@localhost:3305/ecommerce_db"
+    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@"
+    f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/"
+    f"{os.getenv('DB_NAME')}"
 )
 
+# ----------------------------
 # Load Data
+# ----------------------------
 df = pd.read_sql("SELECT * FROM ecommerce_data", engine)
 
+# Convert columns once
+df["visit_date"] = pd.to_datetime(df["visit_date"], errors="coerce")
+df["revenue"] = pd.to_numeric(df["revenue"], errors="coerce")
+df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
+df["quantity"] = pd.to_numeric(df["quantity"], errors="coerce")
 
+# Remove invalid rows
+df = df.dropna(subset=["visit_date"])
+
+# ----------------------------
+# Home Page
+# ----------------------------
 @app.route("/")
 def home():
     return render_template("home.html")
 
 
+# ----------------------------
+# Dashboard
+# ----------------------------
 @app.route("/dashboard")
 def dashboard():
 
-    # ---------------- Filter Values ----------------
+    filtered_df = df.copy()
 
-    quick_filter = request.args.get("quick_filter")
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
-    filtered_df = df.copy()
-    filtered_df["visit_date"] = pd.to_datetime(filtered_df["visit_date"])
-
-    # Date Filter
     if start_date and end_date:
         filtered_df = filtered_df[
-            (filtered_df["visit_date"] >= start_date)
+            (filtered_df["visit_date"] >= pd.to_datetime(start_date))
             &
-            (filtered_df["visit_date"] <= end_date)
+            (filtered_df["visit_date"] <= pd.to_datetime(end_date))
         ]
 
-    # ---------------- KPI Cards ----------------
+    # ---------------- KPI ----------------
 
     total_revenue = round(filtered_df["revenue"].sum(), 2)
-    total_customers = filtered_df["customer_id"].nunique()
-    total_products = filtered_df["product_id"].nunique()
-    total_orders = len(filtered_df)
 
-    # Additional KPIs
+    total_customers = int(filtered_df["customer_id"].nunique())
+
+    total_products = int(filtered_df["product_id"].nunique())
+
+    total_orders = int(len(filtered_df))
 
     avg_rating = round(filtered_df["rating"].mean(), 2)
+
     avg_order_value = round(filtered_df["revenue"].mean(), 2)
 
-    repeat_customers = (
+    repeat_customers = int(
         filtered_df.groupby("customer_id")
         .size()
         .gt(1)
@@ -60,7 +84,7 @@ def dashboard():
 
     monthly_growth = 12.8
 
-    # ---------------- Product Category ----------------
+    # ---------------- Category Mapping ----------------
 
     category_names = {
         0: "Electronics",
@@ -85,38 +109,37 @@ def dashboard():
         .fillna(category_df["product_category"].astype(str))
     )
 
-    # ---------------- Bar Chart ----------------
+    # ---------------- Revenue Bar Chart ----------------
 
     fig = px.bar(
         category_df,
         x="product_category",
         y="revenue",
         color="revenue",
-        title="Revenue by Product Category"
+        title="Revenue by Product Category",
+        template="plotly_white"
     )
 
     chart = fig.to_html(full_html=False)
 
-    # ---------------- Pie Chart ----------------
+    # ---------------- Revenue Pie ----------------
 
     pie = px.pie(
         category_df,
         names="product_category",
         values="revenue",
-        hole=0.4,
+        hole=0.45,
+        template="plotly_white",
         title="Revenue Distribution by Category"
     )
 
     pie_chart = pie.to_html(full_html=False)
 
-        # ---------------- Monthly Revenue ----------------
-
-    df_copy = filtered_df.copy()
-    df_copy["visit_date"] = pd.to_datetime(df_copy["visit_date"])
+    # ---------------- Monthly Revenue ----------------
 
     monthly_df = (
-        df_copy.groupby(
-            df_copy["visit_date"].dt.to_period("M")
+        filtered_df.groupby(
+            filtered_df["visit_date"].dt.to_period("M")
         )["revenue"]
         .sum()
         .reset_index()
@@ -124,22 +147,16 @@ def dashboard():
 
     monthly_df["visit_date"] = monthly_df["visit_date"].astype(str)
 
-    fig2 = px.line(
+    line = px.line(
         monthly_df,
         x="visit_date",
         y="revenue",
         markers=True,
-        title="Monthly Revenue Trend",
-        template="plotly_white"
+        template="plotly_white",
+        title="Monthly Revenue Trend"
     )
 
-    fig2.update_layout(
-        xaxis_title="Month",
-        yaxis_title="Revenue (₹)",
-        hovermode="x unified"
-    )
-
-    line_chart = fig2.to_html(full_html=False)
+    line_chart = line.to_html(full_html=False)
 
     # ---------------- Payment Method ----------------
 
@@ -148,7 +165,7 @@ def dashboard():
         1: "Debit Card",
         2: "UPI",
         3: "Net Banking",
-        4: "Cash on Delivery"
+        4: "Cash On Delivery"
     }
 
     payment_df = (
@@ -168,18 +185,12 @@ def dashboard():
         names="payment_method",
         values="revenue",
         hole=0.45,
-        title="Revenue by Payment Method",
         template="plotly_white"
-    )
-
-    payment_fig.update_traces(
-        textposition="inside",
-        textinfo="percent+label"
     )
 
     payment_chart = payment_fig.to_html(full_html=False)
 
-    # ---------------- Device Type ----------------
+        # ---------------- Device Type ----------------
 
     device_names = {
         0: "Desktop",
@@ -205,24 +216,15 @@ def dashboard():
         y="Users",
         color="Users",
         text="Users",
-        title="Users by Device Type",
         template="plotly_white",
-        color_continuous_scale="Blues"
+        title="Users by Device Type"
     )
 
-    device_fig.update_traces(
-        textposition="outside"
-    )
-
-    device_fig.update_layout(
-        showlegend=False,
-        xaxis_title="Device",
-        yaxis_title="Number of Users"
-    )
+    device_fig.update_traces(textposition="outside")
 
     device_chart = device_fig.to_html(full_html=False)
 
-               # ---------------- Marketing Channel Analysis ----------------
+    # ---------------- Marketing Channel ----------------
 
     marketing_names = {
         0: "Google Ads",
@@ -251,9 +253,8 @@ def dashboard():
         y="revenue",
         color="revenue",
         text="revenue",
-        title="Revenue by Marketing Channel",
         template="plotly_white",
-        color_continuous_scale="Blues"
+        title="Revenue by Marketing Channel"
     )
 
     marketing_fig.update_traces(
@@ -261,18 +262,9 @@ def dashboard():
         textposition="outside"
     )
 
-    marketing_fig.update_layout(
-        showlegend=False,
-        xaxis_title="Marketing Channel",
-        yaxis_title="Revenue (₹)",
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        margin=dict(l=20, r=20, t=60, b=20)
-    )
-
     marketing_chart = marketing_fig.to_html(full_html=False)
 
-    # ---------------- Top 10 Products ----------------
+    # ---------------- Top Products ----------------
 
     top_products = (
         filtered_df.groupby("product_id")["revenue"]
@@ -288,21 +280,13 @@ def dashboard():
         y="revenue",
         color="revenue",
         text="revenue",
-        title="Top 10 Products by Revenue",
         template="plotly_white",
-        color_continuous_scale="Viridis"
+        title="Top 10 Products by Revenue"
     )
 
     top_products_fig.update_traces(
         texttemplate="₹%{y:,.0f}",
         textposition="outside"
-    )
-
-    top_products_fig.update_layout(
-        showlegend=False,
-        xaxis_title="Product ID",
-        yaxis_title="Revenue (₹)",
-        margin=dict(l=20, r=20, t=60, b=20)
     )
 
     top_products_chart = top_products_fig.to_html(full_html=False)
@@ -323,21 +307,50 @@ def dashboard():
         payment_chart=payment_chart,
         device_chart=device_chart,
         marketing_chart=marketing_chart,
-        top_products_chart=top_products_chart,
+        top_products_chart=top_products_chart
     )
 
+
+# ---------------- Sales ----------------
 
 @app.route("/sales")
 def sales():
 
-    total_revenue = round(df["revenue"].sum(), 2)
-    total_orders = len(df)
-    total_quantity = int(df["quantity"].sum())
-    avg_order = round(df["revenue"].mean(), 2)
-
     sales_df = df.copy()
-    sales_df["visit_date"] = pd.to_datetime(sales_df["visit_date"])
 
+    # Ensure correct data types
+    sales_df["visit_date"] = pd.to_datetime(
+        sales_df["visit_date"], errors="coerce"
+    )
+
+    sales_df["revenue"] = pd.to_numeric(
+        sales_df["revenue"], errors="coerce"
+    )
+
+    sales_df["quantity"] = pd.to_numeric(
+        sales_df["quantity"], errors="coerce"
+    )
+
+    sales_df = sales_df.dropna(
+        subset=["visit_date", "revenue"]
+    )
+
+    # KPI Cards
+    total_revenue = round(
+        sales_df["revenue"].sum(), 2
+    )
+
+    total_orders = len(sales_df)
+
+    total_quantity = int(
+        sales_df["quantity"].sum()
+    )
+
+    avg_order = round(
+        sales_df["revenue"].mean(), 2
+    )
+
+    # Monthly Sales
     monthly_sales = (
         sales_df.groupby(
             sales_df["visit_date"].dt.to_period("M")
@@ -346,7 +359,10 @@ def sales():
         .reset_index()
     )
 
-    monthly_sales["visit_date"] = monthly_sales["visit_date"].astype(str)
+    monthly_sales["visit_date"] = (
+        monthly_sales["visit_date"]
+        .astype(str)
+    )
 
     fig = px.line(
         monthly_sales,
@@ -360,11 +376,12 @@ def sales():
     fig.update_layout(
         xaxis_title="Month",
         yaxis_title="Revenue (₹)",
-        hovermode="x unified",
-        margin=dict(l=20, r=20, t=60, b=20)
+        hovermode="x unified"
     )
 
-    sales_chart = fig.to_html(full_html=False)
+    sales_chart = fig.to_html(
+        full_html=False
+    )
 
     return render_template(
         "sales.html",
@@ -376,14 +393,32 @@ def sales():
     )
 
 
+# ---------------- Customers ----------------
+
 @app.route("/customers")
 def customers():
 
-    total_customers = df["customer_id"].nunique()
-    avg_rating = round(df["rating"].mean(), 2)
+    customer_df = df.copy()
 
+    # Convert rating to numeric
+    customer_df["rating"] = pd.to_numeric(
+        customer_df["rating"],
+        errors="coerce"
+    )
+
+    # KPI Cards
+    total_customers = int(
+        customer_df["customer_id"].nunique()
+    )
+
+    avg_rating = round(
+        customer_df["rating"].mean(),
+        2
+    )
+
+    # Customer Type
     customer_type = (
-        df.groupby("user_type")
+        customer_df.groupby("user_type")
         .size()
         .reset_index(name="Customers")
     )
@@ -408,9 +443,13 @@ def customers():
         template="plotly_white"
     )
 
-    fig.update_traces(textinfo="percent+label")
+    fig.update_traces(
+        textinfo="percent+label"
+    )
 
-    customer_chart = fig.to_html(full_html=False)
+    customer_chart = fig.to_html(
+        full_html=False
+    )
 
     return render_template(
         "customers.html",
@@ -420,18 +459,30 @@ def customers():
     )
 
 
+# ---------------- Products ----------------
+
 @app.route("/products")
 def products():
 
-    total_products = df["product_id"].nunique()
-    avg_price = round(df["revenue"].mean(), 2)
+    product_df = df.copy()
 
-    product_sales = (
-        df.groupby("product_category")["revenue"]
-        .sum()
-        .reset_index()
+    # Convert revenue to numeric
+    product_df["revenue"] = pd.to_numeric(
+        product_df["revenue"],
+        errors="coerce"
     )
 
+    # KPI Cards
+    total_products = int(
+        product_df["product_id"].nunique()
+    )
+
+    avg_price = round(
+        product_df["revenue"].mean(),
+        2
+    )
+
+    # Category Mapping
     category_names = {
         0: "Electronics",
         1: "Fashion",
@@ -443,12 +494,19 @@ def products():
         7: "Toys"
     }
 
+    product_sales = (
+        product_df.groupby("product_category")["revenue"]
+        .sum()
+        .reset_index()
+    )
+
     product_sales["product_category"] = (
         product_sales["product_category"]
         .map(category_names)
         .fillna(product_sales["product_category"].astype(str))
     )
 
+    # Revenue Bar Chart
     fig = px.bar(
         product_sales,
         x="product_category",
@@ -456,8 +514,7 @@ def products():
         color="revenue",
         text="revenue",
         title="Revenue by Product Category",
-        template="plotly_white",
-        color_continuous_scale="Blues"
+        template="plotly_white"
     )
 
     fig.update_traces(
@@ -466,17 +523,14 @@ def products():
     )
 
     fig.update_layout(
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        margin=dict(l=20, r=20, t=60, b=20),
         showlegend=False,
         xaxis_title="Product Category",
         yaxis_title="Revenue (₹)"
     )
 
     product_chart = fig.to_html(full_html=False)
-        # ---------------- Revenue Pie Chart ----------------
 
+    # Revenue Pie Chart
     pie = px.pie(
         product_sales,
         names="product_category",
@@ -488,12 +542,6 @@ def products():
 
     pie.update_traces(
         textinfo="percent+label"
-    )
-
-    pie.update_layout(
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        margin=dict(l=20, r=20, t=60, b=20)
     )
 
     pie_chart = pie.to_html(full_html=False)
@@ -511,12 +559,35 @@ def products():
 
 @app.route("/reports")
 def reports():
+
+    report_df = df.copy()
+
+    report_df["revenue"] = pd.to_numeric(
+        report_df["revenue"],
+        errors="coerce"
+    )
+
+    total_revenue = round(
+        report_df["revenue"].sum(),
+        2
+    )
+
+    total_orders = int(len(report_df))
+
+    total_customers = int(
+        report_df["customer_id"].nunique()
+    )
+
+    total_products = int(
+        report_df["product_id"].nunique()
+    )
+
     return render_template(
         "reports.html",
-        total_revenue=round(df["revenue"].sum(), 2),
-        total_orders=len(df),
-        total_customers=df["customer_id"].nunique(),
-        total_products=df["product_id"].nunique()
+        total_revenue=total_revenue,
+        total_orders=total_orders,
+        total_customers=total_customers,
+        total_products=total_products
     )
 
 
@@ -527,7 +598,7 @@ def about():
     return render_template("about.html")
 
 
-# ---------------- Run App ----------------
+# ---------------- Run Application ----------------
 
 if __name__ == "__main__":
     app.run(
