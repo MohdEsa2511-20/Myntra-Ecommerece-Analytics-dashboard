@@ -1,1 +1,8 @@
-flask 
+Flask
+gunicorn
+pandas
+numpy
+plotly
+SQLAlchemy
+PyMySQL
+python-dotenv
