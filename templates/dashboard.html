@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+        <h2 class="fw-bold">Myntra E-Commerce Analytics Dashboard</h2>
+        <p class="text-muted mb-0">
+            Business Intelligence Dashboard | Flask • MySQL • Plotly
+        </p>
+    </div>
+
+    <div>
+        <span class="badge bg-success fs-6">Live Data</span>
+    </div>
+
+</div>
+
+<form method="GET" action="{{ url_for('dashboard') }}">
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-3">
+                <label class="fw-bold">Quick Filter</label>
+
+                <select name="quick_filter" class="form-select">
+
+                    <option value="">Select Filter</option>
+                    <option value="today">Today</option>
+                    <option value="7days">Last 7 Days</option>
+                    <option value="30days">Last 30 Days</option>
+                    <option value="3months">Last 3 Months</option>
+                    <option value="6months">Last 6 Months</option>
+                    <option value="1year">Last 1 Year</option>
+                    <option value="all">All Time</option>
+
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="fw-bold">Start Date</label>
+
+                <input
+                    type="date"
+                    name="start_date"
+                    class="form-control"
+                    value="{{ request.args.get('start_date','') }}"
+                >
+            </div>
+
+            <div class="col-md-3">
+                <label class="fw-bold">End Date</label>
+
+                <input
+                    type="date"
+                    name="end_date"
+                    class="form-control"
+                    value="{{ request.args.get('end_date','') }}"
+                >
+            </div>
+
+            <div class="col-md-3 d-grid">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary">
+                    Apply Filter
+                </button>
+
+            </div>
+            <div class="col-md-3">
+
+    <label class="fw-bold">&nbsp;</label>
+
+    <div class="d-grid gap-2">
+
+    
+
+        <a href="{{ url_for('dashboard') }}"
+           class="btn btn-secondary">
+            Reset Filter
+        </a>
+
+    </div>
+
+</div>
+
+        </div>
+
+    </div>
+</div>
+
+</form>
+
+    <!-- ================= KPI SECTION ================= -->
+
+<div class="row g-4 mb-4">
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Total Revenue</small>
+                    <h3 class="fw-bold text-success mt-2">₹{{ revenue }}</h3>
+                </div>
+                <i class="bi bi-currency-rupee fs-1 text-success"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Customers</small>
+                    <h3 class="fw-bold text-primary mt-2">{{ customers }}</h3>
+                </div>
+                <i class="bi bi-people-fill fs-1 text-primary"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Products</small>
+                    <h3 class="fw-bold text-warning mt-2">{{ products }}</h3>
+                </div>
+                <i class="bi bi-box-seam-fill fs-1 text-warning"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Orders</small>
+                    <h3 class="fw-bold text-danger mt-2">{{ orders }}</h3>
+                </div>
+                <i class="bi bi-cart-check-fill fs-1 text-danger"></i>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div class="row g-4 mb-5">
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Average Rating</small>
+                    <h3 class="fw-bold text-warning mt-2">{{ avg_rating }}</h3>
+                </div>
+                <i class="bi bi-star-fill fs-1 text-warning"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Avg Order Value</small>
+                    <h3 class="fw-bold text-success mt-2">₹{{ avg_order_value }}</h3>
+                </div>
+                <i class="bi bi-credit-card-fill fs-1 text-success"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Growth</small>
+                    <h3 class="fw-bold text-info mt-2">{{ monthly_growth }}%</h3>
+                </div>
+                <i class="bi bi-graph-up-arrow fs-1 text-info"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-lg-6 col-md-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <small class="text-muted text-uppercase">Repeat Customers</small>
+                    <h3 class="fw-bold text-secondary mt-2">{{ repeat_customers }}</h3>
+                </div>
+                <i class="bi bi-arrow-repeat fs-1 text-secondary"></i>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+    <!-- Charts Row 1 -->
+
+<div class="row">
+
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    Revenue by Category
+                </h5>
+            </div>
+
+            <div class="card-body">
+                {{ chart|safe }}
+            </div>
+
+        </div>
+    </div>
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card h-100">
+
+            <div class="card-header bg-success text-white">
+
+                <h5 class="mb-0">
+
+                    Monthly Revenue
+
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                {{ line_chart|safe }}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Charts Row 2 -->
+
+<div class="row">
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card h-100">
+
+            <div class="card-header bg-info text-white">
+
+                <h5 class="mb-0">
+
+                    Payment Method
+
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                {{ payment_chart|safe }}
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card h-100">
+
+            <div class="card-header bg-secondary text-white">
+
+                <h5 class="mb-0">
+
+                    Device Analysis
+
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                {{ device_chart|safe }}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Charts Row 3 -->
+
+<div class="row">
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card h-100">
+
+            <div class="card-header bg-dark text-white">
+
+                <h5 class="mb-0">
+
+                    Marketing Channel
+
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                {{ marketing_chart|safe }}
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-6 mb-4">
+
+        <div class="card h-100">
+
+            <div class="card-header bg-warning">
+
+                <h5 class="mb-0">
+
+                    Top 10 Products
+
+                </h5>
+
+            </div>
+
+            <div class="card-body">
+
+                {{ top_products_chart|safe }}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+    <!-- Executive Summary -->
+
+<div class="row">
+
+    <!-- Technology Stack -->
+    <div class="col-lg-6 mb-4">
+
+        <div class="card shadow-lg border-0 h-100">
+
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    Technology Stack
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <div class="row text-center">
+
+                    <div class="col-6 mb-3">
+                        <i class="bi bi-filetype-py fs-2 text-warning"></i>
+                        <h6 class="mt-2">Python</h6>
+                    </div>
+
+                    <div class="col-6 mb-3">
+                        <i class="bi bi-bootstrap-fill fs-2 text-primary"></i>
+                        <h6 class="mt-2">Bootstrap</h6>
+                    </div>
+
+                    <div class="col-6 mb-3">
+                        <i class="bi bi-database-fill fs-2 text-success"></i>
+                        <h6 class="mt-2">MySQL</h6>
+                    </div>
+
+                    <div class="col-6 mb-3">
+                        <i class="bi bi-bar-chart-fill fs-2 text-danger"></i>
+                        <h6 class="mt-2">Plotly</h6>
+                    </div>
+
+                    <div class="col-6">
+                        <i class="bi bi-server fs-2 text-secondary"></i>
+                        <h6 class="mt-2">Flask</h6>
+                    </div>
+
+                    <div class="col-6">
+                        <i class="bi bi-table fs-2 text-info"></i>
+                        <h6 class="mt-2">Pandas</h6>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Executive Summary -->
+    <div class="col-lg-6 mb-4">
+
+        <div class="card shadow-lg border-0 h-100">
+
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    Executive Summary
+                </h5>
+            </div>
+
+            <div class="card-body">
+
+                <div class="row text-center">
+
+                    <div class="col-6 mb-4">
+                        <h6>Total Revenue</h6>
+                        <h3 class="text-success fw-bold">
+                            ₹{{ revenue }}
+                        </h3>
+                    </div>
+
+                    <div class="col-6 mb-4">
+                        <h6>Total Orders</h6>
+                        <h3 class="text-primary fw-bold">
+                            {{ orders }}
+                        </h3>
+                    </div>
+
+                    <div class="col-6">
+                        <h6>Customers</h6>
+                        <h3 class="text-warning fw-bold">
+                            {{ customers }}
+                        </h3>
+                    </div>
+
+                    <div class="col-6">
+                        <h6>Products</h6>
+                        <h3 class="text-danger fw-bold">
+                            {{ products }}
+                        </h3>
+                    </div>
+
+                </div>
+
+                <hr>
+
+                <h5>Business Insights</h5>
+
+                <ul class="list-group">
+
+                    <li class="list-group-item">
+                        Total revenue is calculated from all completed transactions.
+                    </li>
+
+                    <li class="list-group-item">
+                        Dashboard is connected directly to the MySQL database.
+                    </li>
+
+                    <li class="list-group-item">
+                        Interactive Plotly charts support business analysis.
+                    </li>
+
+                    <li class="list-group-item">
+                        
+                        KPI cards provide a quick executive overview.
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+    
+                    
